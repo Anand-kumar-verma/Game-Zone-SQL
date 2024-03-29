@@ -4,10 +4,10 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const todoRoutes = require("./routes/todos");
 require("dotenv").config();
-// const conn = require("./config/database");
+const conn = require("./config/database");
 const schedule = require("node-schedule");
 const axios = require("axios");
-const mysql = require("mysql");
+// const mysql = require("mysql");
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -29,49 +29,18 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// try {
-//   conn.connect((err) => {
-//     if (err) {
-//       console.error("Error connecting to the database:", err);
-//     } else {
-//       console.log("Connected to the database");
-//     }
-//   });
-// } catch (e) {
-//   console.error("Error:", e);
-// }
-
-var db_config = {
-  host: process.env.HOST,
-    user:process.env.USER,
-    password: process.env.PASSWORD,
-    database:process.env.DATABASE_URL
-};
-
-var connection;
-
-function handleDisconnect() {
-  connection = mysql.createConnection(db_config); // Recreate the connection, since
-                                                  // the old one cannot be reused.
-
-  connection.connect(function(err) {              // The server is either down
-    if(err) {                                     // or restarting (takes a while sometimes).
-      console.log('error when connecting to db:', err);
-      setTimeout(handleDisconnect, 2000); // We introduce a delay before attempting to reconnect,
-    }                                     // to avoid a hot loop, and to allow our node script to
-  });                                     // process asynchronous requests in the meantime.
-                                          // If you're also serving http, display a 503 error.
-  connection.on('error', function(err) {
-    console.log('db error', err);
-    if(err.code === 'PROTOCOL_CONNECTION_LOST') { // Connection to the MySQL server is usually
-      handleDisconnect();                         // lost due to either server restart, or a
-    } else {                                      // connnection idle timeout (the wait_timeout
-      throw err;                                  // server variable configures this)
+try {
+  conn.connect((err) => {
+    if (err) {
+      console.error("Error connecting to the database:", err);
+    } else {
+      console.log("Connected to the database");
     }
   });
+} catch (e) {
+  console.error("Error:", e);
 }
 
-handleDisconnect();
 
 app.use("/api/v1", todoRoutes);
 
@@ -134,6 +103,8 @@ function generateAndSendMessage() {
 function generatedTimeEveryAfterEveryOneMin() {
   let seconds = 59;
   const interval = setInterval(() => {
+
+
     io.emit("onemin", seconds);
     // console.log("time",seconds);
     seconds--;
