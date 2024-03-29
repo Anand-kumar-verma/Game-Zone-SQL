@@ -232,7 +232,7 @@ io.on("connection", (socket) => {
 });
 
 app.get("/", (req, res) => {
-  res.send(`<h1>server running at port=====> ${PORT}</h1>`);
+  res.send(`<h1>This is simple port which is running at -=> ${PORT}</h1>`);
 });
 
 httpServer.listen(PORT, () => {
