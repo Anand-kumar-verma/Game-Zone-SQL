@@ -29,17 +29,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-try {
-  conn.connect((err) => {
-    if (err) {
-      console.error("Error connecting to the database:", err);
-    } else {
-      console.log("Connected to the database");
-    }
-  });
-} catch (e) {
-  console.error("Error:", e);
-}
+
 
 
 app.use("/api/v1", todoRoutes);
@@ -199,6 +189,18 @@ io.on("connection", (socket) => {
     generatedTimeEveryAfterEveryThreeMin(); // color prediction game every 3 time generating time
     generatedTimeEveryAfterEveryFiveMin(); // color prediction game every 5 time generating time
     x = false;
+
+    try {
+      conn.connect((err) => {
+        if (err) {
+          console.error("Error connecting to the database:", err);
+        } else {
+          console.log("Connected to the database");
+        }
+      });
+    } catch (e) {
+      console.error("Error:", e);
+    }
   }
 });
 
