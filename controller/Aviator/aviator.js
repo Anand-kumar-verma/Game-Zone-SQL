@@ -35,12 +35,7 @@ exports.promotionCount =async(req, res) => {
         return { ...i, count: 0, teamcount: 0,directReferrals:[] };
       });
 
-      console.log(id, "this is new data");
-      // let new_data = updateReferralCount(array)
       let new_data = updateReferralCountnew(array)?.find((i) => i.id == id);
-
-      console.log(new_data);
-
       if (result && result.length > 0) {
         return res.status(200).json({
           data: new_data,
