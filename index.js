@@ -4,10 +4,10 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const todoRoutes = require("./routes/todos");
 require("dotenv").config();
-const conn = require("./config/database");
+// const conn = require("./config/database");
 const schedule = require("node-schedule");
 const axios = require("axios");
-// const mysql = require("mysql");
+const mysql = require("mysql");
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -28,6 +28,20 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
+
+// Create MySQL connection pool
+const conn = mysql.createPool({
+  connectionLimit: 100,
+  waitForConnections: true,
+  queueLimit: 0,
+  host:process.env.HOST,
+  user:process.env.USER,
+  password:process.env.PASSWORD,
+  database:process.env.DATABASE_URL,
+  debug: true,
+  wait_timeout: 28800,
+  connect_timeout: 10,
+});
 
 
 
@@ -190,17 +204,17 @@ io.on("connection", (socket) => {
     generatedTimeEveryAfterEveryFiveMin(); // color prediction game every 5 time generating time
     x = false;
 
-    try {
-      conn.connect((err) => {
-        if (err) {
-          console.error("Error connecting to the database:", err);
-        } else {
-          console.log("Connected to the database");
-        }
-      });
-    } catch (e) {
-      console.error("Error:", e);
-    }
+    // try {
+    //   conn.connect((err) => {
+    //     if (err) {
+    //       console.error("Error connecting to the database:", err);
+    //     } else {
+    //       console.log("Connected to the database");
+    //     }
+    //   });
+    // } catch (e) {
+    //   console.error("Error:", e);
+    // }
   }
 });
 
