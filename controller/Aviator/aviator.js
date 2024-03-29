@@ -32,12 +32,14 @@ exports.promotionCount =async(req, res) => {
       // console.log(array, "This is final result");
 
       array = array?.map((i) => {
-        return { ...i, count: 0, teamcount: 0 };
+        return { ...i, count: 0, teamcount: 0,directReferrals:[] };
       });
 
       console.log(id, "this is new data");
       // let new_data = updateReferralCount(array)
       let new_data = updateReferralCountnew(array)?.find((i) => i.id == id);
+
+      console.log(new_data);
 
       if (result && result.length > 0) {
         return res.status(200).json({
@@ -76,6 +78,7 @@ function updateReferralCountnew(users) {
     depositMemberTeamMap[user.id] = 0;
     depositRechargeMap[user.id] = 0;
     depositRechargeTeamMap[user.id] = 0;
+    user.directReferrals = []; // Initialize directReferrals array for each user
   });
 
   // Update count for each referral used
@@ -88,8 +91,16 @@ function updateReferralCountnew(users) {
   // Update team count, deposit_member, and deposit_member_team count for each user recursively
   const updateTeamCountRecursively = (user) => {
     let totalChildrenCount = countMap[user.id];
+   
     users.forEach((u) => {
       if (u.referral_user_id === user.id) {
+        if (user.referral_user_id !== null) {
+          user.directReferrals.push({
+            user_name: u.full_name,
+            mobile: u.mobile,
+            id: u.id
+          });
+        }
         totalChildrenCount += updateTeamCountRecursively(u);
       }
     });
@@ -110,7 +121,7 @@ function updateReferralCountnew(users) {
   users.forEach((user) => {
     teamCountMap[user.id] = updateTeamCountRecursively(user);
     // Update deposit_member count for direct referrals
-    if (user.referral_user_id !== null && user.recharge >0) {
+    if (user.referral_user_id !== null && user.recharge > 0) {
       depositMemberMap[user.referral_user_id]++;
     }
     // Update deposit_member_team count for direct and indirect referrals
@@ -124,6 +135,9 @@ function updateReferralCountnew(users) {
     // Update deposit_recharge_team recursively
     depositRechargeTeamMap[user.id] =
       user.recharge + updateRechargeRecursively(user);
+    
+    // Add direct referral to the user's directReferrals array
+   
   });
 
   // Assign counts to each user
