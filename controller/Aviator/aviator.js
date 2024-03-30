@@ -150,3 +150,37 @@ function updateReferralCountnew(users) {
 
   return users;
 }
+
+exports.topw11winningInformation = async (req, res) => {
+  try {
+    con.query(
+      "SELECT colour_bet.*, user.full_name, user.winning_wallet, user.email FROM colour_bet JOIN user ON colour_bet.userid = user.id ORDER BY CAST(colour_bet.win AS UNSIGNED) DESC LIMIT 11;",
+      (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({
+            msg: "Error in data fetching",
+            error: err.message,
+          });
+        }
+
+        if (result && result.length > 0) {
+          return res.status(200).json({
+            msg: "Data fetched successfully",
+            data: result,
+          });
+        } else {
+          return res.status(404).json({
+            msg: "No data found",
+          });
+        }
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      msg: "Error in data fetching",
+      error: e.message,
+    });
+  }
+};
