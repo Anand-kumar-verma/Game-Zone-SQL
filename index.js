@@ -7,7 +7,7 @@ require("dotenv").config();
 const conn = require("./config/database");
 const schedule = require("node-schedule");
 const axios = require("axios");
-// const mysql = require("mysql");
+const mysql = require("mysql");
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -40,7 +40,21 @@ try {
 } catch (e) {
   console.error("Error:", e);
 }
+// const dbConfig = {
+//   host: process.env.HOST,
+//   user: process.env.USER,
+//   password: process.env.PASSWORD,
+//   database: process.env.DATABASE_URL,
+// };
 
+// let pool = mysql.createPool(dbConfig);
+
+// pool.on("connection", function (_conn) {
+//   if (_conn) {
+//     logger.info("Connected the database via threadId %d!!", _conn.threadId);
+//     _conn.query("SET SESSION auto_increment_increment=1");
+//   }
+// });
 
 app.use("/api/v1", todoRoutes);
 
@@ -103,8 +117,6 @@ function generateAndSendMessage() {
 function generatedTimeEveryAfterEveryOneMin() {
   let seconds = 59;
   const interval = setInterval(() => {
-
-
     io.emit("onemin", seconds);
     // console.log("time",seconds);
     seconds--;

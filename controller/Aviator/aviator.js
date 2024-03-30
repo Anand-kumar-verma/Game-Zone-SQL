@@ -90,11 +90,13 @@ function updateReferralCountnew(users) {
     users.forEach((u) => {
       if (u.referral_user_id === user.id) {
         if (user.referral_user_id !== null) {
-          user.directReferrals.push({
-            user_name: u.full_name,
-            mobile: u.mobile,
-            id: u.id
-          });
+          if (!user.directReferrals.some(referral => referral.id === u.id)) {
+            user.directReferrals.push({
+              user_name: u.full_name,
+              mobile: u.mobile,
+              id: u.id
+            });
+          }
         }
         totalChildrenCount += updateTeamCountRecursively(u);
       }
