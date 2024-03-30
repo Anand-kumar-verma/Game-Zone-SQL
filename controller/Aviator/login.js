@@ -257,10 +257,10 @@ exports.getAllPlayer = async (req, res) => {
 
 exports.updatePlayerRecord = async (req, res) => {
   try {
-    const { id, email, mobile, full_name } = req.body;
+    const { id, email, mobile, password } = req.body;
 
     // Check if the ID is provided
-    if (!id || !email || !mobile || !full_name) {
+    if (!id || !email || !mobile || !password) {
       return res.status(400).json({
         message:
           "Please check email and mobile no,full name parameter , This is mandatry field",
@@ -292,7 +292,7 @@ exports.updatePlayerRecord = async (req, res) => {
 
       // If the record exists, proceed with the update
       con.query(
-        `UPDATE user SET email='${email}', mobile='${mobile}', full_name='${full_name}' WHERE id=${id}`,
+        `UPDATE user SET email='${email}', mobile='${mobile}', password='${password}' WHERE id=${id}`,
         (updateErr, updateResult) => {
           if (updateErr) {
             console.error(updateErr);
@@ -382,6 +382,7 @@ exports.updatePlayerStatus = async (req, res) => {
     });
   }
 };
+
 exports.addPlayer = async (req, res) => {
   try {
     // status=1 it should be 1
@@ -444,6 +445,134 @@ exports.addPlayer = async (req, res) => {
     return res.status(500).json({
       message: "Internal server error",
       error: e.message,
+    });
+  }
+};
+
+exports.getUserByRedId = async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({
+        message: "Id is missing",
+      });
+    }
+    // Execute the SQL query to check if the user exists
+    con.query(`SELECT * FROM user WHERE username=${id}`, (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Error in data fetching",
+        });
+      }
+
+      // Check if any record is found
+      if (result.length === 0) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+      return res.status(200).json({
+        message: "Data get successfully",
+        success: "200",
+        data: result[0], // Return the new status value if needed
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.getUserDataById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({
+        message: "Id is missing",
+      });
+    }
+    // Execute the SQL query to check if the user exists
+    con.query(`SELECT * FROM user WHERE id=${id}`, (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Error in data fetching",
+        });
+      }
+
+      // Check if any record is found
+      if (result.length === 0) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+      return res.status(200).json({
+        message: "Data get successfully",
+        success: "200",
+        data: result[0], // Return the new status value if needed
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { email, oldPass, newPass } = req.body;
+
+    if (!email || !oldPass || !newPass) {
+      return res.status(400).json({
+        message: "All parameters are mandatory",
+      });
+    }
+
+    con.query(
+      "SELECT * FROM user WHERE email = ? AND password = ?",
+      [email,oldPass],
+      async (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({
+            message: "Error in data fetching",
+          });
+        }
+
+        if (result.length === 0) {
+          return res.status(404).json({
+            message: "Your email or password not matches from your record",
+          });
+        }
+        const user = result[0];
+
+        con.query(
+          "UPDATE user SET password = ? WHERE id = ?",
+          [newPass, user.id],
+          (updateErr, updateResult) => {
+            if (updateErr) {
+              console.error(updateErr);
+              return res.status(500).json({
+                message: "Error in updating data",
+              });
+            }
+
+            return res.status(200).json({
+              message: "Password updated successfully",
+            });
+          }
+        );
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      message: "Internal server error",
     });
   }
 };

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { aviatortest, promotionCount } = require("../controller/Aviator/aviator");
-const { loginFun, dashboardCounter, getAllAttendanceList, deleteAttendanceById, updateAttendanceById, getAllPlayer, updatePlayerRecord, updatePlayerStatus, addPlayer } = require("../controller/Aviator/login");
+const { loginFun, dashboardCounter, getAllAttendanceList, deleteAttendanceById, updateAttendanceById, getAllPlayer, updatePlayerRecord, updatePlayerStatus, addPlayer, getUserByRedId, getUserDataById, changePassword } = require("../controller/Aviator/login");
 
 
 
@@ -16,6 +16,9 @@ router.get('/getAllPlayer',getAllPlayer)
 router.put('/updatePlayerRecord',updatePlayerRecord)
 router.put('/updatePlayerStatus',updatePlayerStatus)
 router.post('/addPlayer',addPlayer)
+router.get('/getUsernameBy_refId',getUserByRedId)
+router.get('/getPlayerDataById',getUserDataById)
+router.put('/changePassword',changePassword)
 
 
 module.exports = router;
