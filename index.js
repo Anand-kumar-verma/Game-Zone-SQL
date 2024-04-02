@@ -29,32 +29,58 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-try {
-  conn.connect((err) => {
-    if (err) {
-      console.error("Error connecting to the database:", err);
-    } else {
-      console.log("Connected to the database");
-    }
-  });
-} catch (e) {
-  console.error("Error:", e);
-}
-// const dbConfig = {
+// try {
+//   conn.connect((err) => {
+//     if (err) {
+//       console.error("Error connecting to the database:", err);
+//     } else {
+//       console.log("Connected to the database");
+//     }
+//   });
+// } catch (e) {
+//   console.error("Error:", e);
+// }
+
+// var db_config = {
 //   host: process.env.HOST,
 //   user: process.env.USER,
 //   password: process.env.PASSWORD,
 //   database: process.env.DATABASE_URL,
 // };
 
-// let pool = mysql.createPool(dbConfig);
 
-// pool.on("connection", function (_conn) {
-//   if (_conn) {
-//     logger.info("Connected the database via threadId %d!!", _conn.threadId);
-//     _conn.query("SET SESSION auto_increment_increment=1");
+// Create a connection pool
+const pool = mysql.createPool({
+  // connectionLimit: 10, // maximum number of connections in the pool
+  host: process.env.HOST,
+  user: process.env.USER,
+  password: process.env.PASSWORD,
+  database: process.env.DATABASE_URL,
+  multipleStatements: true // allows executing multiple SQL statements in a single query
+});
+
+// Function to execute a SQL query
+function executeQuery(sql, args) {
+  return new Promise((resolve, reject) => {
+    pool.query(sql, args, (err, results) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
+// Example usage:
+// (async () => {
+//   try {
+//     const results = await executeQuery('SELECT * FROM your_table');
+//     console.log(results);
+//   } catch (error) {
+//     console.error('Error executing query:', error);
 //   }
-// });
+// })();
 
 app.use("/api/v1", todoRoutes);
 
@@ -203,16 +229,16 @@ const job = schedule.scheduleJob("0 0 * * *", async function () {
 });
 
 let x = true;
-io.on("connection", (socket) => {
-  if (x) {
-    console.log("Functions called");
-    generateAndSendMessage(); // aviator game every random time
-    generatedTimeEveryAfterEveryOneMin(); // color prediction game every 1 time generating time
-    generatedTimeEveryAfterEveryThreeMin(); // color prediction game every 3 time generating time
-    generatedTimeEveryAfterEveryFiveMin(); // color prediction game every 5 time generating time
-    x = false;
-  }
-});
+// io.on("connection", (socket) => {
+//   if (x) {
+//     console.log("Functions called");
+//     generateAndSendMessage();
+//     generatedTimeEveryAfterEveryOneMin();
+//     generatedTimeEveryAfterEveryThreeMin();
+//     generatedTimeEveryAfterEveryFiveMin();
+//     x = false;
+//   }
+// });
 
 app.get("/", (req, res) => {
   res.send(`<h1>This is simple port which is running at -====> ${PORT}</h1>`);
