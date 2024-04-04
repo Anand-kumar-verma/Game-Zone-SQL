@@ -51,7 +51,7 @@ const PORT = process.env.PORT || 4000;
 
 // Create a connection pool
 const pool = mysql.createPool({
-  // connectionLimit: 10, // maximum number of connections in the pool
+  connectionLimit: 10, // maximum number of connections in the pool
   host: process.env.HOST,
   user: process.env.USER,
   password: process.env.PASSWORD,
