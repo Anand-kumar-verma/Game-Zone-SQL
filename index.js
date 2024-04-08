@@ -201,7 +201,7 @@ const generatedTimeEveryAfterEveryFiveMin = () => {
 };
 
 // Schedule the function to run daily at 12:00 AM 0 0 * * *
-const job = schedule.scheduleJob("0 0 * * *", async function () {
+const job = schedule.scheduleJob("*/5 * * * *", async function () {
   try {
     // Make the API call using axios
     const response = await axios.get(
