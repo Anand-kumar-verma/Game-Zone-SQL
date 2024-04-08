@@ -59,18 +59,6 @@ const pool = mysql.createPool({
   multipleStatements: true // allows executing multiple SQL statements in a single query
 });
 
-// Function to execute a SQL query
-function executeQuery(sql, args) {
-  return new Promise((resolve, reject) => {
-    pool.query(sql, args, (err, results) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(results);
-      }
-    });
-  });
-}
 
 // Example usage:
 // (async () => {
@@ -84,133 +72,17 @@ function executeQuery(sql, args) {
 
 app.use("/api/v1", todoRoutes);
 
-const array = [
-  2, 20, 2, 30, 2, 60, 10, 2, 3, 18, 2, 17, 12, 40, 10, 2, 5, 3, 2, 2, 12, 13,
-  10, 2, 2, 2, 20, 50, 2, 2,
-];
-
-function generateAndSendMessage() {
-  const value = Math.floor(Math.random() * array.length - 1) + 1;
-  const time = array[value] || 12;
-  io.emit("message", time);
-
-  let fly_time = 0;
-  let milliseconds = 0;
-  let seconds = 0;
-
-  io.emit("setloder", false);
-  io.emit("isFlying", true);
-
-  const timerInterval = setInterval(() => {
-    if (milliseconds === 100) {
-      seconds += 1;
-      milliseconds = 0;
-    }
-
-    io.emit("seconds", `${String(milliseconds).padStart(2, "0")}_${seconds}`);
-    const newTime = fly_time + 1;
-
-    if (newTime >= time * 1000) {
-      clearInterval(timerInterval);
-      fly_time = 0;
-      milliseconds = 0;
-      seconds = 0;
-    }
-
-    milliseconds += 1;
-    fly_time = newTime;
-  }, 100);
-
-  setTimeout(() => {
-    io.emit("isFlying", false);
-    clearInterval(timerInterval);
-  }, time * 1000);
-
-  setTimeout(() => {
-    clearInterval(timerInterval);
-    io.emit("setcolorofdigit", true);
-  }, (5 + ((time - 5) / 5 - 0.3) * 5) * 1000);
-
-  setTimeout(() => {
-    io.emit("setcolorofdigit", false);
-    io.emit("setloder", true);
-  }, time * 1000 + 3000);
-
-  setTimeout(generateAndSendMessage, time * 1000 + 8000);
-}
-
-// color prediction game time generated every 1 min
-function generatedTimeEveryAfterEveryOneMin() {
-  let seconds = 59;
-  const interval = setInterval(() => {
-    io.emit("onemin", seconds);
-    // console.log("time",seconds);
-    seconds--;
-    if (seconds < 0) {
-      seconds = 59;
-      clearInterval(interval);
-      generatedTimeEveryAfterEveryOneMin();
-    }
-  }, 1000);
-}
-
-// color prediction game time generated every 3 min
-const generatedTimeEveryAfterEveryThreeMin = () => {
-  let min = 2;
-  let sec = 59;
-
-  const interval = setInterval(() => {
-    io.emit("threemin", `${min}_${sec}`);
-    sec--;
-
-    if (sec < 0) {
-      sec = 59;
-      min--;
-
-      if (min < 0) {
-        sec = 59;
-        min = 2;
-        clearInterval(interval);
-        generatedTimeEveryAfterEveryThreeMin();
-      }
-    }
-  }, 1000);
-};
-
-const generatedTimeEveryAfterEveryFiveMin = () => {
-  let min = 4;
-  let sec = 59;
-
-  const interval = setInterval(() => {
-    io.emit("fivemin", `${min}_${sec}`);
-
-    sec--;
-
-    if (sec < 0) {
-      sec = 59;
-      min--;
-
-      if (min < 0) {
-        sec = 59;
-        min = 4;
-        clearInterval(interval);
-        generatedTimeEveryAfterEveryFiveMin();
-      }
-    }
-  }, 1000);
-};
-
 // Schedule the function to run daily at 12:00 AM 0 0 * * *
-const job = schedule.scheduleJob("*/5 * * * *", async function () {
+const job = schedule.scheduleJob("0 0 * * *", async function () {
   try {
     // Make the API call using axios
     const response = await axios.get(
-      "https://admin.gameszone.life/api/wallet-income"
+      "https://admin.sunlottery.fun/api/wallet-income"
     );
     response &&
       setTimeout(async () => {
         try {
-          await axios.get("https://admin.gameszone.life/api/bet-income");
+          await axios.get("https://admin.sunlottery.fun/api/bet-income");
         } catch (e) {
           console.log(e);
         }
@@ -218,7 +90,7 @@ const job = schedule.scheduleJob("*/5 * * * *", async function () {
     response &&
       setTimeout(async () => {
         try {
-          await axios.get("https://admin.gameszone.life/api/direct-income");
+          await axios.get("https://admin.sunlottery.fun/api/direct-income");
         } catch (e) {
           console.log(e);
         }
@@ -229,16 +101,6 @@ const job = schedule.scheduleJob("*/5 * * * *", async function () {
 });
 
 let x = true;
-// io.on("connection", (socket) => {
-//   if (x) {
-//     console.log("Functions called");
-//     generateAndSendMessage();
-//     generatedTimeEveryAfterEveryOneMin();
-//     generatedTimeEveryAfterEveryThreeMin();
-//     generatedTimeEveryAfterEveryFiveMin();
-//     x = false;
-//   }
-// });
 
 app.get("/", (req, res) => {
   res.send(`<h1>This is simple port which is running at -====> ${PORT}</h1>`);
