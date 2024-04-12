@@ -86,7 +86,7 @@ exports.promotionCount = async (req, res) => {
         .then((deposit_member_amounts) => {
           new_data.deposit_member_amount = deposit_member_amounts;
           con.query(
-            `SELECT SUM(tr15_amt) AS total_amount,count(*) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${direct_ids.join(
+            `SELECT SUM(tr15_amt) AS total_amount,COUNT(DISTINCT tr15_uid) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${direct_ids.join(
               ","
             )});`,
             (err, result) => {
@@ -100,7 +100,7 @@ exports.promotionCount = async (req, res) => {
               }
 
               con.query(
-                `SELECT SUM(tr15_amt) AS total_amount,count(*) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${indirect_ids.join(
+                `SELECT SUM(tr15_amt) AS total_amount,COUNT(DISTINCT tr15_uid) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${indirect_ids.join(
                   ","
                 )});`,
                 (err, resultteam) => {
