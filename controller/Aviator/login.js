@@ -615,11 +615,8 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.withdrawlRequestFun = async (req, res) => {
-  console.log("function is called now");
   try {
     const { from_date, to_date } = req.body;
-
-    console.log(from_date, to_date);
 
     if (!from_date || !to_date)
       return res.status(400).json({
@@ -1121,7 +1118,6 @@ exports.getSubMenu = async (req, res) => {
   }
 };
 
-
 exports.addFund = async (req, res) => {
   try {
     const { login_id, type_id, wal_type, amount, msg } = req.body;
@@ -1144,8 +1140,14 @@ exports.addFund = async (req, res) => {
 
       // Execute stored procedure
       con.query(
-        'CALL sp_fund_transfer(?, ?, ?, ?, ?, @msg)',
-        [login_id, Number(type_id), Number(wal_type), parseFloat(Number(amount)), msg],
+        "CALL sp_fund_transfer(?, ?, ?, ?, ?, @msg)",
+        [
+          login_id,
+          Number(type_id),
+          Number(wal_type),
+          parseFloat(Number(amount)),
+          msg,
+        ],
         (spErr, result) => {
           if (spErr) {
             console.error(spErr);
@@ -1157,7 +1159,7 @@ exports.addFund = async (req, res) => {
           }
 
           // Fetch the output message
-          con.query('SELECT @msg AS msg', (selectErr, messageResult) => {
+          con.query("SELECT @msg AS msg", (selectErr, messageResult) => {
             if (selectErr) {
               console.error(selectErr);
               return con.rollback(() => {
@@ -1194,5 +1196,705 @@ exports.addFund = async (req, res) => {
     return res.status(500).json({
       message: "Internal server error",
     });
+  }
+};
+
+exports.getAllDirectReferralByUserId = async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id)
+      return res.status(400).json({
+        message: "Please provide user id",
+        statusCode: 200,
+      });
+
+    const checkIfExistsQuery = `SELECT * FROM user WHERE username = '${id}'`;
+    con.query(checkIfExistsQuery, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (result && result.length < 0) {
+        // Email or mobile already exists
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+      if (!result[0]?.id)
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      const userid = result[0]?.id;
+      const getreferralquery = `SELECT * FROM user WHERE referral_user_id = ${userid};`;
+      con.query(getreferralquery, [], (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({
+            message: "Internal server error",
+            error: err.message,
+          });
+        }
+
+        if (result && result.length < 0) {
+          // Email or mobile already exists
+          return res.status(400).json({
+            message: "No Data Found",
+            data: [],
+          });
+        }
+        return res.status(200).json({
+          message: "Data Get successfully",
+          data: result,
+        });
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: e.message,
+    });
+  }
+};
+
+exports.getAllDownLineByUserId = async (req, res) => {
+  const { username } = req.query;
+
+  if (!username) {
+    return res.status(400).json({
+      message: "Missing user id",
+    });
+  }
+  const checkIfExistsQuery = `SELECT * FROM user WHERE username = '${username}'`;
+  con.query(checkIfExistsQuery, [], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({
+        message: "Internal server error",
+        error: err.message,
+      });
+    }
+
+    if (result && result.length < 0) {
+      // Email or mobile already exists
+      return res.status(400).json({
+        message: "No Data Found",
+        data: [],
+      });
+    }
+    if (!result[0]?.id)
+      return res.status(400).json({
+        message: "No Data Found",
+        data: [],
+      });
+    const id = result[0]?.id;
+    try {
+      con.query("SELECT * FROM user", (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({
+            msg: "Error in data fetching",
+            error: err.message,
+            er: err,
+          });
+        }
+
+        const array = result.map((i) => ({
+          ...i,
+          count: 0,
+          teamcount: 0,
+          directReferrals: [],
+        }));
+
+        let new_data = updateReferralCountnew(array).find((i) => i.id == id);
+        const levels = Array.from({ length: 20 }, (_, i) => `level_${i + 1}`);
+
+        let direct_ids = new_data.directReferrals?.map((i) => i?.c_id);
+
+        let indirect_ids = [];
+        for (let i = levels.length - 1; i >= 0; i--) {
+          let currentLevel = new_data?.teamMembersByLevel[levels[i - 1]];
+          let nextLevel = new_data?.teamMembersByLevel[levels[i]];
+
+          if (currentLevel && nextLevel) {
+            let idsToRemove = currentLevel.map((item) => item.id);
+            nextLevel = nextLevel.filter(
+              (item) => !idsToRemove.includes(item.id)
+            );
+            new_data.teamMembersByLevel[levels[i]] = nextLevel;
+          }
+        }
+
+        for (let i = 1; i <= 20; i++) {
+          if (new_data.teamMembersByLevel[`level_${i}`]?.length > 0) {
+            indirect_ids.push(
+              ...new_data.teamMembersByLevel[`level_${i}`].map(
+                (item) => item.id
+              )
+            );
+          }
+        }
+
+        new_data = { ...new_data, deposit_member_amount: [] };
+
+        const promises = [];
+        for (let i = 1; i <= 20; i++) {
+          if (new_data.teamMembersByLevel[`level_${i}`]?.length > 0) {
+            let levelIds = new_data.teamMembersByLevel[`level_${i}`].map(
+              (k) => k.id
+            );
+            const promise = new Promise((resolve, reject) => {
+              con.query(
+                `SELECT SUM(tr15_amt) AS total_amount,count(*) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${levelIds.join(
+                  ","
+                )});`,
+                (err, resultteamamount) => {
+                  if (err) {
+                    console.error(err);
+                    reject(err);
+                  } else {
+                    resolve(resultteamamount[0].total_amount || 0);
+                  }
+                }
+              );
+            });
+            promises.push(promise);
+          } else {
+            promises.push(0);
+          }
+        }
+
+        Promise.all(promises)
+          .then((deposit_member_amounts) => {
+            new_data.deposit_member_amount = deposit_member_amounts;
+            con.query(
+              `SELECT SUM(tr15_amt) AS total_amount,COUNT(DISTINCT tr15_uid) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${direct_ids.join(
+                ","
+              )});`,
+              (err, result) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({
+                    msg: "Error in data fetching",
+                    error: err.message,
+                    er: err,
+                  });
+                }
+                con.query(
+                  `SELECT SUM(tr15_amt) AS total_amount,COUNT(DISTINCT tr15_uid) AS total_member FROM tr15_fund_request WHERE tr15_status = 'Success' AND tr15_depo_type = 'Winzo' AND tr15_uid IN (${indirect_ids.join(
+                    ","
+                  )});`,
+                  (err, resultteam) => {
+                    if (err) {
+                      console.error(err);
+                      return res.status(500).json({
+                        msg: "Error in data fetching",
+                        error: err.message,
+                        er: err,
+                      });
+                    }
+
+                    return res.status(200).json({
+                      data: {
+                        ...new_data,
+                        deposit_member: result[0].total_member || 0,
+                        deposit_recharge: result[0].total_amount || 0,
+                        deposit_member_team: resultteam[0].total_member || 0,
+                        deposit_recharge_team: resultteam[0].total_amount || 0,
+                      },
+                      msg: "Data fetched successfully",
+                    });
+                  }
+                );
+              }
+            );
+          })
+          .catch((err) => {
+            console.error(err);
+            return res.status(500).json({
+              msg: "Error in data fetching",
+              error: err.message,
+              er: err,
+            });
+          });
+      });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({
+        msg: "Error in data fetching",
+        error: e.message,
+      });
+    }
+  });
+};
+
+function updateReferralCountnew(users) {
+  const countMap = {};
+  const teamCountMap = {};
+
+  // Initialize count for each user
+  users.forEach((user) => {
+    countMap[user.id] = 0;
+    teamCountMap[user.id] = 0;
+    user.directReferrals = []; // Initialize directReferrals array for each user
+  });
+
+  // Update count for each referral used
+  users.forEach((user) => {
+    // Check if referral_user_id exists in countMap
+    if (countMap.hasOwnProperty(user.referral_user_id)) {
+      // Increase the count for the referral_user_id by 1
+      countMap[user.referral_user_id]++;
+    }
+  });
+
+  // Update team count, deposit_member, and deposit_member_team count for each user recursively
+  const updateTeamCountRecursively = (user) => {
+    let totalChildrenCount = 0;
+
+    // Check if the user id exists in countMap
+    if (countMap.hasOwnProperty(user.id)) {
+      totalChildrenCount += countMap[user.id];
+
+      // Iterate through each user
+      users.forEach((u) => {
+        // Check if the user's referral_user_id matches the current user's id
+        if (u.referral_user_id === user.id) {
+          // Check if the user's referral_user_id is not null
+          if (user.referral_user_id !== null) {
+            // Check if the directReferrals array does not already contain the current user
+            if (
+              !user.directReferrals.some((referral) => referral.c_id === u.id)
+            ) {
+              // If not, add the user to the directReferrals array
+              user.directReferrals.push({
+                user_name: u.full_name,
+                mobile: u.mobile,
+                c_id: u.id,
+                id: u.username,
+              });
+            }
+          }
+          // Recursively update the team count for the current user
+          totalChildrenCount += updateTeamCountRecursively(u);
+        }
+      });
+    }
+
+    return totalChildrenCount;
+  };
+
+  users.forEach((user) => {
+    // Update teamCountMap if user.id exists in countMap
+    if (countMap.hasOwnProperty(user.id)) {
+      teamCountMap[user.id] = updateTeamCountRecursively(user);
+    }
+
+    // Add direct referral to the user's directReferrals array
+  });
+
+  const updateUserLevelRecursively = (user, level, maxLevel) => {
+    if (level === 0 || level > maxLevel) return []; // Return an empty array if we reached the desired level or exceeded the maximum level
+
+    const levelMembers = [];
+
+    // Iterate through each user
+    users.forEach((u) => {
+      // Check if the user's referral_user_id matches the current user's id
+      if (u.referral_user_id === user.id) {
+        // Add the user's full_name and id to the levelMembers array
+        levelMembers.push({ full_name: u.full_name, id: u.id });
+
+        // Recursively update the team members for the current user at the next level
+        const children = updateUserLevelRecursively(u, level + 1, maxLevel); // Increase level for the next level
+        levelMembers.push(...children); // Concatenate children to the current levelMembers array
+      }
+    });
+
+    return levelMembers;
+  };
+
+  users.forEach((user) => {
+    // Initialize arrays for each level of team members
+    user.teamMembersByLevel = {};
+
+    // Populate arrays with team members at each level
+    for (let i = 1; i <= 20; i++) {
+      const levelMembers = updateUserLevelRecursively(user, 1, i); // Start from level 1 and set the maximum level for this user
+      user.teamMembersByLevel[`level_${i}`] = levelMembers;
+      if (levelMembers.length === 0) break; // Stop populating arrays if no team members at this level
+    }
+  });
+  // Assign counts to each user
+  users.forEach((user) => {
+    // Update user properties with countMap, teamCountMap, depositMemberMap, depositMemberTeamMap,
+    // depositRechargeMap, and depositRechargeTeamMap if user.id exists in the respective maps
+    user.count = countMap.hasOwnProperty(user.id) ? countMap[user.id] : 0;
+    user.teamcount = teamCountMap.hasOwnProperty(user.id)
+      ? teamCountMap[user.id]
+      : 0;
+  });
+  return users;
+}
+
+exports.depositRequestFilterCricket = (req, res) => {
+  try {
+    // Validate request parameters
+    const { from_date, to_date } = req.query;
+    if (
+      (from_date && !isValidDate(from_date)) ||
+      (to_date && !isValidDate(to_date))
+    ) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    // Build SQL query
+    let query = `
+      SELECT tr15.*, u.full_name, u.username, u.cricket_userid, u.cricket_password, u.cricket_url
+      FROM tr15_fund_request AS tr15
+      INNER JOIN user AS u ON u.id = tr15.tr15_uid
+      WHERE tr15_depo_type = 'Cricket'`;
+
+    if (from_date && to_date) {
+      query += ` AND tr15.tr15_date >= '${from_date}' AND tr15.tr15_date <= '${to_date}'`;
+    }
+    // Add more conditions here if needed
+
+    query += " ORDER BY tr15.tr15_id DESC";
+
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (result && result.length < 0) {
+        // Email or mobile already exists
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+      console.log(result.length);
+      return res.status(200).json({
+        message: "Data fount successfully",
+        data: result,
+      });
+    });
+  } catch (err) {
+    console.error("Error in depositRequestFilterCricket function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.depositRequestFilterWingo = (req, res) => {
+  try {
+    // Validate request parameters
+    const { from_date, to_date } = req.query;
+    if (
+      (from_date && !isValidDate(from_date)) ||
+      (to_date && !isValidDate(to_date))
+    ) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    // Build SQL query
+    let query = `
+      SELECT tr15.*, u.full_name, u.username
+      FROM tr15_fund_request AS tr15
+      INNER JOIN user AS u ON u.id = tr15.tr15_uid
+      WHERE tr15_depo_type = 'Winzo'`;
+
+    if (from_date && to_date) {
+      query += ` AND tr15.tr15_date >= '${from_date}' AND tr15.tr15_date <= '${to_date}'`;
+    }
+    // Add more conditions here if needed
+
+    query += " ORDER BY tr15.tr15_id DESC";
+
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (result && result.length < 0) {
+        // Email or mobile already exists
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+      console.log(result.length);
+      return res.status(200).json({
+        message: "Data fount successfully",
+        data: result,
+      });
+    });
+  } catch (err) {
+    console.error("Error in depositRequestFilterCricket function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Helper function to check if date is in valid format
+function isValidDate(dateString) {
+  const regEx = /^\d{4}-\d{2}-\d{2}$/;
+  return dateString.match(regEx) != null;
+}
+
+exports.withdrawlRequestReportCricket = (req, res) => {
+  try {
+    // Validate request parameters
+    const { from_date, to_date, type } = req.query;
+    if (
+      (from_date && !isValidDate(from_date)) ||
+      (to_date && !isValidDate(to_date))
+    ) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    // Build SQL query
+    let query = `
+      SELECT w.*, u.full_name, u.username, b.holder_name, b.bank_name, b.account, b.ifsc
+      FROM withdraw_history AS w
+      INNER JOIN user AS u ON u.id = w.user_id
+      INNER JOIN bank AS b ON b.id = w.account_id
+      WHERE w.type = 'Cricket'`;
+
+    if (type !== "All") {
+      query += `AND w.status = '${type}'`;
+    }
+    // WHERE w.status = 1 AND
+    // const currentDate = new Date().toISOString().split('T')[0];
+    // query += ` AND w.request_date = '${currentDate}'`;
+    // if (from_date && to_date) {
+    //   query += ` AND tr15.tr15_date >= '${from_date}' AND tr15.tr15_date <= '${to_date}'`;
+    // }
+
+    query += " ORDER BY w.id DESC";
+
+    // Execute the query
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (!result || result.length === 0) {
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+
+      return res.status(200).json({
+        message: "Data found successfully",
+        data: result,
+      });
+    });
+  } catch (err) {
+    console.error("Error in depositRequestFilterWingo function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.withdrawlRequestReportWingo = (req, res) => {
+  try {
+    // Validate request parameters
+    const { from_date, to_date, type } = req.query;
+    if (
+      (from_date && !isValidDate(from_date)) ||
+      (to_date && !isValidDate(to_date))
+    ) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+    let query = `
+      SELECT w.*, u.full_name, u.username, b.holder_name, b.bank_name, b.account, b.ifsc
+      FROM withdraw_history AS w
+      INNER JOIN user AS u ON u.id = w.user_id
+      INNER JOIN bank AS b ON b.id = w.account_id
+      WHERE w.type = 'Winzo'`;
+    if (type !== "All") {
+      query += `AND w.status = '${type}'`;
+    }
+
+    // Build SQL query
+
+    // WHERE w.status = 1 AND
+    // const currentDate = new Date().toISOString().split('T')[0];
+    // query += ` AND w.request_date = '${currentDate}'`;
+    // if (from_date && to_date) {
+    //   query += ` AND tr15.tr15_date >= '${from_date}' AND tr15.tr15_date <= '${to_date}'`;
+    // }
+
+    query += " ORDER BY w.id DESC";
+
+    // Execute the query
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (!result || result.length === 0) {
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+
+      return res.status(200).json({
+        message: "Data found successfully",
+        data: result,
+      });
+    });
+  } catch (err) {
+    console.error("Error in depositRequestFilterWingo function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.colorPredictionOneMinGetNextId = (req, res) => {
+  try {
+    // Validate request parameters
+    const { gameid } = req.query;
+    if (!gameid) {
+      return res.status(400).json({ error: "Please provide game id" });
+    }
+    let query = `SELECT color_bet_log.*,game_setting.parsantage AS parsantage ,game_setting.id AS id FROM color_bet_log LEFT JOIN game_setting ON color_bet_log.gameid=game_setting.id where color_bet_log.gameid=${Number(gameid)} Limit 10;`;
+
+    // Execute the query
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      if (!result || result.length === 0) {
+        return res.status(400).json({
+          message: "No Data Found",
+          data: [],
+        });
+      }
+
+      return res.status(200).json({
+        message: "Data found successfully",
+        data: result,
+      });
+    });
+  } catch (err) {
+    console.error("Error in depositRequestFilterWingo function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+exports.manuallyWinning = (req, res) => {
+  try {
+    // Retrieve data from request body
+    const { gamesno, gameid, number, datetime } = req.body;
+    
+    // Validate request parameters
+    if (!gamesno || !gameid || !number) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Build SQL query
+    let query = `INSERT INTO colour_admin_result (gamesno, gameid, number, status, datetime) VALUES (?, ?, ?, 1, ?)`;
+    // Execute the query
+    con.query(query, [gamesno, gameid, number, moment(new Date()).format("YYYY-MM-DD")], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+      return res.status(200).json({
+        message: "Data update successfully",
+      });
+    });
+  } catch (err) {
+    console.error("Error in colorPredictionOneMinGetNextId function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.manuallyupdatePercentage = (req, res) => {
+  try {
+    // Retrieve data from request body
+    const { id, parsantage } = req.body;
+    
+    // Validate request parameters
+    if (!id || !parsantage) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Build SQL query
+    let query = `UPDATE game_setting SET parsantage = ? WHERE id = ?`;
+    
+    // Execute the query
+    con.query(query, [parsantage, id], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+
+      return res.status(200).json({
+        message: "Data update successfully",
+      });
+    });
+  } catch (err) {
+    console.error("Error in manuallyWinning function:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.getFundHistory = (req, res) => {
+  try {
+    // Build SQL query
+    let query = `SELECT * FROM view_admin_fund_transfer`;
+    // Execute the query
+    con.query(query, [], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+      return res.status(200).json({
+        message: "Data get successfully",
+        data:result
+      });
+    });
+  } catch (err) {
+    console.error("Error in colorPredictionOneMinGetNextId function:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };

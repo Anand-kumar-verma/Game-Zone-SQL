@@ -56,7 +56,8 @@ const pool = mysql.createPool({
   user: process.env.USER,
   password: process.env.PASSWORD,
   database: process.env.DATABASE_URL,
-  multipleStatements: true // allows executing multiple SQL statements in a single query
+  multipleStatements: true, // allows executing multiple SQL statements in a single query
+  connectTimeout: 10000 // 10 seconds timeout
 });
 
 
@@ -73,7 +74,7 @@ const pool = mysql.createPool({
 app.use("/api/v1", todoRoutes);
 
 // Schedule the function to run daily at 12:00 AM 0 0 * * *
-const job = schedule.scheduleJob("0 0 * * *", async function () {
+const job = schedule.scheduleJob("0 1 * * *", async function () {
   try {
     // Make the API call using axios
     const response = await axios.get(
